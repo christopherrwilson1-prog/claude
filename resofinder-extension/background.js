@@ -1,90 +1,80 @@
 // ResoFinder Background Service Worker
-// Fetches restaurant websites and searches for reservation platform links
+// Checks if restaurant exists on OpenTable, Resy, Tock, etc.
 
 const PLATFORMS = {
   resy: {
     name: 'Book on Resy',
     color: '#D32323',
-    urlPatterns: ['resy.com'],
-    icon: '🍽️'
+    icon: '🍽️',
+    buildUrl: (name, city) => {
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      const citySlug = city.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      return `https://resy.com/cities/${citySlug}/${slug}`;
+    }
   },
   opentable: {
     name: 'Book on OpenTable',
     color: '#DA3743',
-    urlPatterns: ['opentable.com'],
-    icon: '📅'
+    icon: '📅',
+    buildUrl: (name, city) => {
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      return `https://www.opentable.com/r/${slug}-${city.toLowerCase()}`;
+    }
   },
   tock: {
     name: 'Book on Tock',
     color: '#00A0A0',
-    urlPatterns: ['exploretock.com', 'tock.com'],
-    icon: '🎫'
-  },
-  sevenrooms: {
-    name: 'Book on SevenRooms',
-    color: '#000000',
-    urlPatterns: ['sevenrooms.com'],
-    icon: '🔑'
+    icon: '🎫',
+    buildUrl: (name, city) => {
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      return `https://www.exploretock.com/${slug}`;
+    }
   }
 };
 
 // Listen for messages from content script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === 'fetchWebsite') {
-    fetchAndScanWebsite(request.url).then(result => {
+  if (request.action === 'findPlatform') {
+    findRestaurantPlatform(request.name, request.city).then(result => {
       sendResponse(result);
     }).catch(error => {
-      console.error('ResoFinder: Error fetching website:', error);
-      sendResponse({ platform: null, url: null, error: error.message });
+      console.error('ResoFinder: Error finding platform:', error);
+      sendResponse({ platform: null, url: null });
     });
     return true; // Keep channel open for async response
   }
 });
 
-async function fetchAndScanWebsite(websiteUrl) {
-  try {
-    console.log('ResoFinder: Fetching website:', websiteUrl);
+async function findRestaurantPlatform(restaurantName, city) {
+  console.log('ResoFinder: Searching for:', restaurantName, 'in', city);
 
-    // Fetch the restaurant's website
-    const response = await fetch(websiteUrl, {
-      method: 'GET',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+  // Try each platform in order
+  for (let [key, platform] of Object.entries(PLATFORMS)) {
+    try {
+      const url = platform.buildUrl(restaurantName, city);
+      console.log(`ResoFinder: Checking ${platform.name}:`, url);
+
+      // Try to fetch the URL
+      const response = await fetch(url, {
+        method: 'HEAD',
+        redirect: 'follow'
+      });
+
+      // If we get a 200, the restaurant exists on this platform!
+      if (response.ok) {
+        console.log(`ResoFinder: ✓ Found on ${platform.name}!`);
+        return {
+          platform: platform,
+          url: url
+        };
+      } else {
+        console.log(`ResoFinder: ✗ Not on ${platform.name} (${response.status})`);
       }
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    } catch (error) {
+      console.log(`ResoFinder: ✗ Error checking ${platform.name}:`, error.message);
     }
-
-    const html = await response.text();
-    const htmlLower = html.toLowerCase();
-
-    // Search for reservation platform links in the HTML
-    for (let [key, platform] of Object.entries(PLATFORMS)) {
-      for (let urlPattern of platform.urlPatterns) {
-        if (htmlLower.includes(urlPattern)) {
-          console.log('ResoFinder: Found platform in website:', platform.name);
-
-          // Try to extract the actual booking URL
-          const urlRegex = new RegExp(`https?://[^"'\\s<>]*${urlPattern}[^"'\\s<>]*`, 'i');
-          const match = html.match(urlRegex);
-
-          const bookingUrl = match ? match[0].replace(/&amp;/g, '&') : null;
-
-          return {
-            platform: platform,
-            url: bookingUrl
-          };
-        }
-      }
-    }
-
-    console.log('ResoFinder: No reservation platform found on website');
-    return { platform: null, url: null };
-
-  } catch (error) {
-    console.error('ResoFinder: Fetch error:', error);
-    throw error;
   }
+
+  console.log('ResoFinder: Not found on any platform');
+  return { platform: null, url: null };
 }

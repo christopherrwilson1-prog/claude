@@ -3,129 +3,63 @@
 (function() {
   'use strict';
 
-  // Platform detection patterns
-  const PLATFORMS = {
-    resy: {
-      name: 'Book on Resy',
-      color: '#D32323',
-      patterns: ['resy.com', 'reserve on resy', 'book on resy', 'resy'],
-      urlPatterns: ['resy.com'],
-      icon: '🍽️'
-    },
-    opentable: {
-      name: 'Book on OpenTable',
-      color: '#DA3743',
-      patterns: ['opentable.com', 'reserve on opentable', 'book on opentable'],
-      urlPatterns: ['opentable.com'],
-      icon: '📅'
-    },
-    tock: {
-      name: 'Book on Tock',
-      color: '#00A0A0',
-      patterns: ['exploretock.com', 'tock.com', 'book on tock'],
-      urlPatterns: ['exploretock.com', 'tock.com'],
-      icon: '🎫'
-    },
-    sevenrooms: {
-      name: 'Book on SevenRooms',
-      color: '#000000',
-      patterns: ['sevenrooms.com'],
-      urlPatterns: ['sevenrooms.com'],
-      icon: '🔑'
+  function getRestaurantInfo() {
+    // Get restaurant name from h1
+    const nameElement = document.querySelector('h1');
+    if (!nameElement) {
+      console.log('ResoFinder: Could not find restaurant name');
+      return null;
     }
-  };
 
-  function detectOnYelpPage() {
-    // First, try to detect reservation platforms directly on Yelp page
-    const links = document.querySelectorAll('a[href]');
-    const pageHTML = document.body.innerHTML.toLowerCase();
+    const restaurantName = nameElement.innerText.trim();
 
-    console.log('ResoFinder: Checking Yelp page for direct links...');
+    // Get city from the address/location section
+    // Yelp usually has the city in the address
+    let city = 'los-angeles'; // Default to LA
 
-    // Check actual URLs first (most reliable)
-    for (let link of links) {
-      const href = link.href.toLowerCase();
-
-      for (let [key, platform] of Object.entries(PLATFORMS)) {
-        if (platform.urlPatterns) {
-          for (let urlPattern of platform.urlPatterns) {
-            if (href.includes(urlPattern)) {
-              console.log('ResoFinder: Found platform on Yelp:', platform.name);
-              return { platform: platform, url: link.href };
-            }
-          }
-        }
+    // Try to find city in address
+    const addressElements = document.querySelectorAll('[class*="address"]');
+    for (let elem of addressElements) {
+      const text = elem.innerText;
+      // Look for pattern like "Los Angeles, CA"
+      const cityMatch = text.match(/([A-Za-z\s]+),\s*[A-Z]{2}/);
+      if (cityMatch) {
+        city = cityMatch[1].trim();
+        break;
       }
     }
 
-    // Check HTML source for platform URLs
-    for (let [key, platform] of Object.entries(PLATFORMS)) {
-      if (platform.urlPatterns) {
-        for (let urlPattern of platform.urlPatterns) {
-          if (pageHTML.includes(urlPattern)) {
-            console.log('ResoFinder: Found platform in Yelp HTML:', platform.name);
-            const urlMatch = pageHTML.match(new RegExp(`https?://[^"'\\s]*${urlPattern}[^"'\\s]*`, 'i'));
-            const bookingUrl = urlMatch ? urlMatch[0].replace(/&amp;/g, '&') : null;
-            return { platform: platform, url: bookingUrl };
-          }
-        }
+    // Also try structured data or meta tags
+    if (city === 'los-angeles') {
+      const metaCity = document.querySelector('meta[property="og:locality"]');
+      if (metaCity) {
+        city = metaCity.content;
       }
     }
 
-    return null;
+    console.log('ResoFinder: Restaurant info:', { name: restaurantName, city: city });
+    return { name: restaurantName, city: city };
   }
 
-  function getRestaurantWebsite() {
-    // Look for the restaurant's website link on Yelp
-    // Yelp uses biz_redir for business website links
-    const websiteLink = document.querySelector('a[href*="biz_redir"]');
-
-    if (websiteLink) {
-      // Extract the actual website URL from Yelp's redirect
-      const href = websiteLink.href;
-      const urlMatch = href.match(/url=([^&]+)/);
-      if (urlMatch) {
-        const websiteUrl = decodeURIComponent(urlMatch[1]);
-        console.log('ResoFinder: Found restaurant website:', websiteUrl);
-        return websiteUrl;
-      }
-    }
-
-    // Alternative: look for website section
-    const websiteLinks = Array.from(document.querySelectorAll('a')).filter(a => {
-      const text = a.innerText.toLowerCase();
-      return text.includes('business website') || text.includes('visit website');
-    });
-
-    if (websiteLinks.length > 0 && websiteLinks[0].href) {
-      const href = websiteLinks[0].href;
-      if (href.includes('biz_redir')) {
-        const urlMatch = href.match(/url=([^&]+)/);
-        if (urlMatch) {
-          return decodeURIComponent(urlMatch[1]);
-        }
-      }
-    }
-
-    console.log('ResoFinder: No restaurant website found on Yelp');
-    return null;
-  }
-
-  async function fetchRestaurantWebsite(websiteUrl) {
-    console.log('ResoFinder: Requesting background to fetch:', websiteUrl);
+  async function findPlatform(restaurantInfo) {
+    console.log('ResoFinder: Searching platforms for', restaurantInfo.name);
 
     return new Promise((resolve) => {
       chrome.runtime.sendMessage(
-        { action: 'fetchWebsite', url: websiteUrl },
+        {
+          action: 'findPlatform',
+          name: restaurantInfo.name,
+          city: restaurantInfo.city
+        },
         (response) => {
           if (chrome.runtime.lastError) {
-            console.error('ResoFinder: Error communicating with background:', chrome.runtime.lastError);
+            console.error('ResoFinder: Error:', chrome.runtime.lastError);
             resolve(null);
           } else if (response && response.platform) {
-            console.log('ResoFinder: Found platform on website:', response.platform.name);
+            console.log('ResoFinder: Found on', response.platform.name);
             resolve(response);
           } else {
-            console.log('ResoFinder: No platform found on website');
+            console.log('ResoFinder: Not found on any platform');
             resolve(null);
           }
         }
@@ -157,13 +91,13 @@
     // Style the badge
     badge.style.backgroundColor = platformInfo.platform.color;
 
-    // Make it clickable if we have a URL
+    // Make it clickable
     if (platformInfo.url) {
       badge.style.cursor = 'pointer';
       badge.addEventListener('click', () => {
         window.open(platformInfo.url, '_blank');
       });
-      badge.title = `Click to book on ${platformInfo.platform.name}`;
+      badge.title = `Click to book at ${platformInfo.platform.name}`;
     } else {
       badge.title = platformInfo.platform.name;
     }
@@ -180,16 +114,13 @@
     } else {
       // Fallback: try to find phone number or website links
       const phoneLink = document.querySelector('a[href^="tel:"]');
-      const websiteLink = document.querySelector('a[href*="biz_redir"]');
 
       if (phoneLink && phoneLink.parentElement) {
         phoneLink.parentElement.insertBefore(badge, phoneLink.parentElement.firstChild);
-      } else if (websiteLink && websiteLink.parentElement) {
-        websiteLink.parentElement.insertBefore(badge, websiteLink.parentElement.firstChild);
       } else {
         // Last resort: add near restaurant header
         const restaurantHeader = document.querySelector('h1');
-        if (restaurantHeader) {
+        if (restaurantHeader && restaurantHeader.parentNode) {
           restaurantHeader.parentNode.insertBefore(badge, restaurantHeader.nextSibling);
         } else {
           document.body.insertBefore(badge, document.body.firstChild);
@@ -197,7 +128,7 @@
       }
     }
 
-    console.log('ResoFinder: Badge created successfully');
+    console.log('ResoFinder: Badge created');
   }
 
   function showFallbackBadge() {
@@ -235,36 +166,27 @@
       return;
     }
 
-    console.log('ResoFinder: Starting detection...');
+    console.log('ResoFinder: Starting...');
 
-    // Wait a bit for Yelp to load content
+    // Wait for Yelp to load content
     await new Promise(resolve => setTimeout(resolve, 2000));
 
-    // Step 1: Check if platform is directly on Yelp page
-    let platformInfo = detectOnYelpPage();
-
-    if (platformInfo) {
-      console.log('ResoFinder: Platform found on Yelp page');
-      createBadge(platformInfo);
+    // Get restaurant name and city
+    const restaurantInfo = getRestaurantInfo();
+    if (!restaurantInfo) {
+      console.log('ResoFinder: Could not extract restaurant info');
+      showFallbackBadge();
       return;
     }
 
-    // Step 2: Get restaurant website and fetch it
-    console.log('ResoFinder: No platform on Yelp, checking restaurant website...');
-    const websiteUrl = getRestaurantWebsite();
+    // Search platforms
+    const platformInfo = await findPlatform(restaurantInfo);
 
-    if (websiteUrl) {
-      platformInfo = await fetchRestaurantWebsite(websiteUrl);
-
-      if (platformInfo) {
-        createBadge(platformInfo);
-        return;
-      }
+    if (platformInfo) {
+      createBadge(platformInfo);
+    } else {
+      showFallbackBadge();
     }
-
-    // Step 3: Show fallback badge
-    console.log('ResoFinder: Showing fallback badge');
-    showFallbackBadge();
   }
 
   init();
