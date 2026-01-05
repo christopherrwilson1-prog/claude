@@ -43,6 +43,8 @@
     const pageHTML = document.body.innerHTML.toLowerCase();
     const pageText = document.body.innerText.toLowerCase();
 
+    console.log('ResoFinder: Checking', links.length, 'links, isLastAttempt:', isLastAttempt);
+
     let detectedPlatform = null;
     let bookingUrl = null;
 
@@ -50,12 +52,18 @@
     for (let link of links) {
       const href = link.href.toLowerCase();
 
+      // Debug logging
+      if (href.includes('resy') || href.includes('opentable') || href.includes('tock')) {
+        console.log('ResoFinder DEBUG: Found platform URL:', href);
+      }
+
       for (let [key, platform] of Object.entries(PLATFORMS)) {
         if (platform.urlPatterns) {
           for (let urlPattern of platform.urlPatterns) {
             if (href.includes(urlPattern)) {
               detectedPlatform = platform;
               bookingUrl = link.href;
+              console.log('ResoFinder: MATCH! Platform:', platform.name, 'URL:', bookingUrl);
               return { platform: detectedPlatform, url: bookingUrl };
             }
           }
