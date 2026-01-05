@@ -43,20 +43,12 @@
     const pageHTML = document.body.innerHTML.toLowerCase();
     const pageText = document.body.innerText.toLowerCase();
 
-    console.log(`ResoFinder: Scanning ${links.length} links and ${buttons.length} buttons`);
-
     let detectedPlatform = null;
     let bookingUrl = null;
 
     // PRIORITY 1: Check actual URLs first (most reliable)
     for (let link of links) {
       const href = link.href.toLowerCase();
-      const linkText = link.innerText.toLowerCase().trim();
-
-      // Debug: log reservation-related links
-      if (linkText.includes('reserv') || linkText.includes('book') || href.includes('resy') || href.includes('opentable') || href.includes('tock')) {
-        console.log('ResoFinder DEBUG: Found reservation link:', { text: linkText, href: href });
-      }
 
       for (let [key, platform] of Object.entries(PLATFORMS)) {
         if (platform.urlPatterns) {
@@ -64,7 +56,6 @@
             if (href.includes(urlPattern)) {
               detectedPlatform = platform;
               bookingUrl = link.href;
-              console.log('ResoFinder: Found platform via URL match', platform.name, bookingUrl);
               return { platform: detectedPlatform, url: bookingUrl };
             }
           }
@@ -85,7 +76,6 @@
           if (linkText.includes(pattern) || ariaLabel.includes(pattern)) {
             detectedPlatform = platform;
             bookingUrl = link.href;
-            console.log('ResoFinder: Found platform via link text', platform.name, bookingUrl);
             return { platform: detectedPlatform, url: bookingUrl };
           }
         }
@@ -110,7 +100,6 @@
             if (parentLink) {
               bookingUrl = parentLink.href;
             }
-            console.log('ResoFinder: Found platform via button', platform.name);
             return { platform: detectedPlatform, url: bookingUrl };
           }
         }
@@ -123,7 +112,6 @@
         for (let urlPattern of platform.urlPatterns) {
           if (pageHTML.includes(urlPattern)) {
             detectedPlatform = platform;
-            console.log('ResoFinder: Found platform in HTML source', platform.name);
             // Try to extract the URL from HTML
             const urlMatch = pageHTML.match(new RegExp(`https?://[^"'\\s]*${urlPattern}[^"'\\s]*`, 'i'));
             if (urlMatch) {
@@ -142,7 +130,6 @@
                                      pageText.includes('make a reservation');
 
       if (hasReservationMention) {
-        console.log('ResoFinder: Defaulting to Call for Reservations (last attempt)');
         return {
           platform: {
             name: 'Call for Reservations',
@@ -153,7 +140,6 @@
         };
       }
 
-      console.log('ResoFinder: Defaulting to Walk-in Only (last attempt)');
       return {
         platform: {
           name: 'Walk-in Only',
@@ -214,7 +200,6 @@
     if (contactSection) {
       // Insert as first child of contact section
       contactSection.insertBefore(badge, contactSection.firstChild);
-      console.log('ResoFinder: Badge inserted in contact section');
     } else {
       // Fallback: try to find phone number or website links
       const phoneLink = document.querySelector('a[href^="tel:"]');
@@ -222,19 +207,15 @@
 
       if (phoneLink && phoneLink.parentElement) {
         phoneLink.parentElement.insertBefore(badge, phoneLink.parentElement.firstChild);
-        console.log('ResoFinder: Badge inserted near phone');
       } else if (websiteLink && websiteLink.parentElement) {
         websiteLink.parentElement.insertBefore(badge, websiteLink.parentElement.firstChild);
-        console.log('ResoFinder: Badge inserted near website');
       } else {
         // Last resort: add near restaurant header
         const restaurantHeader = document.querySelector('h1');
         if (restaurantHeader) {
           restaurantHeader.parentNode.insertBefore(badge, restaurantHeader.nextSibling);
-          console.log('ResoFinder: Badge inserted near header (fallback)');
         } else {
           document.body.insertBefore(badge, document.body.firstChild);
-          console.log('ResoFinder: Badge inserted at top (last resort)');
         }
       }
     }
@@ -255,19 +236,14 @@
     function tryDetect() {
       attempts++;
       const isLastAttempt = attempts >= maxAttempts;
-      console.log(`ResoFinder: Detection attempt ${attempts}/${maxAttempts}`);
 
       const platformInfo = detectReservationPlatform(isLastAttempt);
       if (platformInfo) {
         createBadge(platformInfo);
-        console.log('ResoFinder: Badge created successfully');
       } else if (attempts < maxAttempts) {
         // Try again with increasing delay to catch late-loading content
         const delay = attempts < 3 ? 500 : 1000;
-        console.log(`ResoFinder: No platform found yet, retrying in ${delay}ms...`);
         setTimeout(tryDetect, delay);
-      } else {
-        console.log('ResoFinder: Max attempts reached, no platform detected');
       }
     }
 
