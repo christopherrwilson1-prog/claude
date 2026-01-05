@@ -36,12 +36,14 @@
     }
   };
 
-  function detectReservationPlatform() {
+  function detectReservationPlatform(isLastAttempt = false) {
     // Look for reservation links and buttons in the page
     const links = document.querySelectorAll('a[href]');
     const buttons = document.querySelectorAll('button, [role="button"]');
     const pageHTML = document.body.innerHTML.toLowerCase();
     const pageText = document.body.innerText.toLowerCase();
+
+    console.log(`ResoFinder: Scanning ${links.length} links and ${buttons.length} buttons`);
 
     let detectedPlatform = null;
     let bookingUrl = null;
@@ -49,6 +51,12 @@
     // PRIORITY 1: Check actual URLs first (most reliable)
     for (let link of links) {
       const href = link.href.toLowerCase();
+      const linkText = link.innerText.toLowerCase().trim();
+
+      // Debug: log reservation-related links
+      if (linkText.includes('reserv') || linkText.includes('book') || href.includes('resy') || href.includes('opentable') || href.includes('tock')) {
+        console.log('ResoFinder DEBUG: Found reservation link:', { text: linkText, href: href });
+      }
 
       for (let [key, platform] of Object.entries(PLATFORMS)) {
         if (platform.urlPatterns) {
@@ -127,25 +135,25 @@
       }
     }
 
-    // Check for phone-only or walk-in (only if no platform found)
-    const hasReservationMention = pageText.includes('reservation') ||
-                                   pageText.includes('book a table') ||
-                                   pageText.includes('make a reservation');
+    // Only show fallback options on the last attempt to avoid premature detection
+    if (!detectedPlatform && isLastAttempt) {
+      const hasReservationMention = pageText.includes('reservation') ||
+                                     pageText.includes('book a table') ||
+                                     pageText.includes('make a reservation');
 
-    if (!detectedPlatform && hasReservationMention) {
-      console.log('ResoFinder: Defaulting to Call for Reservations');
-      return {
-        platform: {
-          name: 'Call for Reservations',
-          color: '#666666',
-          icon: '📞'
-        },
-        url: null
-      };
-    }
+      if (hasReservationMention) {
+        console.log('ResoFinder: Defaulting to Call for Reservations (last attempt)');
+        return {
+          platform: {
+            name: 'Call for Reservations',
+            color: '#666666',
+            icon: '📞'
+          },
+          url: null
+        };
+      }
 
-    if (!detectedPlatform) {
-      console.log('ResoFinder: Defaulting to Walk-in Only');
+      console.log('ResoFinder: Defaulting to Walk-in Only (last attempt)');
       return {
         platform: {
           name: 'Walk-in Only',
@@ -242,18 +250,24 @@
 
     // Try multiple times as Yelp loads content dynamically
     let attempts = 0;
-    const maxAttempts = 5;
+    const maxAttempts = 8; // Increased from 5
 
     function tryDetect() {
       attempts++;
+      const isLastAttempt = attempts >= maxAttempts;
       console.log(`ResoFinder: Detection attempt ${attempts}/${maxAttempts}`);
 
-      const platformInfo = detectReservationPlatform();
+      const platformInfo = detectReservationPlatform(isLastAttempt);
       if (platformInfo) {
         createBadge(platformInfo);
+        console.log('ResoFinder: Badge created successfully');
       } else if (attempts < maxAttempts) {
-        // Try again in 500ms
-        setTimeout(tryDetect, 500);
+        // Try again with increasing delay to catch late-loading content
+        const delay = attempts < 3 ? 500 : 1000;
+        console.log(`ResoFinder: No platform found yet, retrying in ${delay}ms...`);
+        setTimeout(tryDetect, delay);
+      } else {
+        console.log('ResoFinder: Max attempts reached, no platform detected');
       }
     }
 
