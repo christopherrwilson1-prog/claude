@@ -36,8 +36,17 @@ Instantly see which platform (Resy, OpenTable, Tock, etc.) a restaurant uses for
 - **OpenTable** (red badge 📅)
 - **Tock** (teal badge 🎫)
 - **SevenRooms** (black badge 🔑)
-- **Call to Reserve** (gray badge 📞) - when reservations mentioned but no platform detected
+- **Call for Reservations** (gray badge 📞) - when reservations mentioned but no platform detected
 - **Walk-in Only** (light gray badge 🚶) - when no reservation system found
+
+## Known Limitations
+
+**Works only with direct Yelp integration:**
+- The extension can only detect reservation platforms that are directly linked on the Yelp page
+- Some restaurants require you to visit their website first to find the booking platform
+- Example: If a restaurant only shows "Visit Website" on Yelp, the extension will show "Call for Reservations" instead
+
+This is working as designed - the extension reads what's actually on the Yelp page in real-time, without maintaining a database.
 
 ## Files Explained
 

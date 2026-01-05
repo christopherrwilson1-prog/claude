@@ -4,62 +4,93 @@
   'use strict';
 
   // Platform detection patterns
+  // Note: Patterns are checked in order - more specific patterns should come first
   const PLATFORMS = {
     resy: {
       name: 'Book on Resy',
       color: '#D32323',
-      patterns: ['resy.com', 'reserve on resy', 'book on resy'],
+      patterns: ['resy.com', 'reserve on resy', 'book on resy', 'resy'],
+      urlPatterns: ['resy.com'],
       icon: '🍽️'
     },
     opentable: {
       name: 'Book on OpenTable',
       color: '#DA3743',
-      patterns: ['opentable.com', 'reserve on opentable', 'book a table'],
+      patterns: ['opentable.com', 'reserve on opentable', 'book on opentable'],
+      urlPatterns: ['opentable.com'],
       icon: '📅'
     },
     tock: {
       name: 'Book on Tock',
       color: '#00A0A0',
-      patterns: ['exploretock.com', 'book on tock'],
+      patterns: ['exploretock.com', 'tock.com', 'book on tock'],
+      urlPatterns: ['exploretock.com', 'tock.com'],
       icon: '🎫'
     },
     sevenrooms: {
       name: 'Book on SevenRooms',
       color: '#000000',
       patterns: ['sevenrooms.com'],
+      urlPatterns: ['sevenrooms.com'],
       icon: '🔑'
     }
   };
 
-  function detectReservationPlatform() {
+  function detectReservationPlatform(isLastAttempt = false) {
     // Look for reservation links and buttons in the page
     const links = document.querySelectorAll('a[href]');
     const buttons = document.querySelectorAll('button, [role="button"]');
     const pageHTML = document.body.innerHTML.toLowerCase();
     const pageText = document.body.innerText.toLowerCase();
 
+    console.log('ResoFinder: Checking', links.length, 'links, isLastAttempt:', isLastAttempt);
+
     let detectedPlatform = null;
     let bookingUrl = null;
 
-    // First, check all links for reservation platform URLs
+    // PRIORITY 1: Check actual URLs first (most reliable)
     for (let link of links) {
       const href = link.href.toLowerCase();
+
+      // Debug logging
+      if (href.includes('resy') || href.includes('opentable') || href.includes('tock')) {
+        console.log('ResoFinder DEBUG: Found platform URL:', href);
+      }
+
+      for (let [key, platform] of Object.entries(PLATFORMS)) {
+        if (platform.urlPatterns) {
+          for (let urlPattern of platform.urlPatterns) {
+            if (href.includes(urlPattern)) {
+              detectedPlatform = platform;
+              bookingUrl = link.href;
+              console.log('ResoFinder: MATCH! Platform:', platform.name, 'URL:', bookingUrl);
+              return { platform: detectedPlatform, url: bookingUrl };
+            }
+          }
+        }
+      }
+    }
+
+    // PRIORITY 2: Check link text and aria labels
+    for (let link of links) {
       const linkText = link.innerText.toLowerCase();
       const ariaLabel = (link.getAttribute('aria-label') || '').toLowerCase();
 
       for (let [key, platform] of Object.entries(PLATFORMS)) {
         for (let pattern of platform.patterns) {
-          if (href.includes(pattern) || linkText.includes(pattern) || ariaLabel.includes(pattern)) {
+          // Skip URL patterns in text matching
+          if (pattern.includes('.com')) continue;
+
+          if (linkText.includes(pattern) || ariaLabel.includes(pattern)) {
             detectedPlatform = platform;
             bookingUrl = link.href;
-            console.log('ResoFinder: Found platform via link', platform.name, bookingUrl);
             return { platform: detectedPlatform, url: bookingUrl };
           }
         }
       }
     }
 
-    // Check buttons for reservation text
+    // PRIORITY 3: Check buttons for reservation text
     for (let button of buttons) {
       const buttonText = button.innerText.toLowerCase();
       const ariaLabel = (button.getAttribute('aria-label') || '').toLowerCase();
@@ -67,6 +98,9 @@
 
       for (let [key, platform] of Object.entries(PLATFORMS)) {
         for (let pattern of platform.patterns) {
+          // Skip URL patterns in text matching
+          if (pattern.includes('.com')) continue;
+
           if (buttonText.includes(pattern) || ariaLabel.includes(pattern) || onclick.includes(pattern)) {
             detectedPlatform = platform;
             // Try to find the actual link
@@ -74,48 +108,46 @@
             if (parentLink) {
               bookingUrl = parentLink.href;
             }
-            console.log('ResoFinder: Found platform via button', platform.name);
             return { platform: detectedPlatform, url: bookingUrl };
           }
         }
       }
     }
 
-    // Check HTML source for platform URLs (sometimes hidden in data attributes)
+    // PRIORITY 4: Check HTML source for platform URLs (sometimes hidden in data attributes)
     for (let [key, platform] of Object.entries(PLATFORMS)) {
-      for (let pattern of platform.patterns) {
-        if (pageHTML.includes(pattern)) {
-          detectedPlatform = platform;
-          console.log('ResoFinder: Found platform in HTML', platform.name);
-          // Try to extract the URL from HTML
-          const urlMatch = pageHTML.match(new RegExp(`https?://[^"'\\s]*${pattern}[^"'\\s]*`, 'i'));
-          if (urlMatch) {
-            bookingUrl = urlMatch[0].replace(/&amp;/g, '&');
+      if (platform.urlPatterns) {
+        for (let urlPattern of platform.urlPatterns) {
+          if (pageHTML.includes(urlPattern)) {
+            detectedPlatform = platform;
+            // Try to extract the URL from HTML
+            const urlMatch = pageHTML.match(new RegExp(`https?://[^"'\\s]*${urlPattern}[^"'\\s]*`, 'i'));
+            if (urlMatch) {
+              bookingUrl = urlMatch[0].replace(/&amp;/g, '&');
+            }
+            return { platform: detectedPlatform, url: bookingUrl };
           }
-          return { platform: detectedPlatform, url: bookingUrl };
         }
       }
     }
 
-    // Check for phone-only or walk-in (only if no platform found)
-    const hasReservationMention = pageText.includes('reservation') ||
-                                   pageText.includes('book a table') ||
-                                   pageText.includes('make a reservation');
+    // Only show fallback options on the last attempt to avoid premature detection
+    if (!detectedPlatform && isLastAttempt) {
+      const hasReservationMention = pageText.includes('reservation') ||
+                                     pageText.includes('book a table') ||
+                                     pageText.includes('make a reservation');
 
-    if (!detectedPlatform && hasReservationMention) {
-      console.log('ResoFinder: Defaulting to Call for Reservations');
-      return {
-        platform: {
-          name: 'Call for Reservations',
-          color: '#666666',
-          icon: '📞'
-        },
-        url: null
-      };
-    }
+      if (hasReservationMention) {
+        return {
+          platform: {
+            name: 'Call for Reservations',
+            color: '#666666',
+            icon: '📞'
+          },
+          url: null
+        };
+      }
 
-    if (!detectedPlatform) {
-      console.log('ResoFinder: Defaulting to Walk-in Only');
       return {
         platform: {
           name: 'Walk-in Only',
@@ -176,7 +208,6 @@
     if (contactSection) {
       // Insert as first child of contact section
       contactSection.insertBefore(badge, contactSection.firstChild);
-      console.log('ResoFinder: Badge inserted in contact section');
     } else {
       // Fallback: try to find phone number or website links
       const phoneLink = document.querySelector('a[href^="tel:"]');
@@ -184,19 +215,15 @@
 
       if (phoneLink && phoneLink.parentElement) {
         phoneLink.parentElement.insertBefore(badge, phoneLink.parentElement.firstChild);
-        console.log('ResoFinder: Badge inserted near phone');
       } else if (websiteLink && websiteLink.parentElement) {
         websiteLink.parentElement.insertBefore(badge, websiteLink.parentElement.firstChild);
-        console.log('ResoFinder: Badge inserted near website');
       } else {
         // Last resort: add near restaurant header
         const restaurantHeader = document.querySelector('h1');
         if (restaurantHeader) {
           restaurantHeader.parentNode.insertBefore(badge, restaurantHeader.nextSibling);
-          console.log('ResoFinder: Badge inserted near header (fallback)');
         } else {
           document.body.insertBefore(badge, document.body.firstChild);
-          console.log('ResoFinder: Badge inserted at top (last resort)');
         }
       }
     }
@@ -212,18 +239,19 @@
 
     // Try multiple times as Yelp loads content dynamically
     let attempts = 0;
-    const maxAttempts = 5;
+    const maxAttempts = 8; // Increased from 5
 
     function tryDetect() {
       attempts++;
-      console.log(`ResoFinder: Detection attempt ${attempts}/${maxAttempts}`);
+      const isLastAttempt = attempts >= maxAttempts;
 
-      const platformInfo = detectReservationPlatform();
+      const platformInfo = detectReservationPlatform(isLastAttempt);
       if (platformInfo) {
         createBadge(platformInfo);
       } else if (attempts < maxAttempts) {
-        // Try again in 500ms
-        setTimeout(tryDetect, 500);
+        // Try again with increasing delay to catch late-loading content
+        const delay = attempts < 3 ? 500 : 1000;
+        setTimeout(tryDetect, delay);
       }
     }
 
