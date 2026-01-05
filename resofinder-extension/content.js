@@ -4,7 +4,6 @@
   'use strict';
 
   // Platform detection patterns
-  // Note: Patterns are checked in order - more specific patterns should come first
   const PLATFORMS = {
     resy: {
       name: 'Book on Resy',
@@ -36,129 +35,102 @@
     }
   };
 
-  function detectReservationPlatform(isLastAttempt = false) {
-    // Look for reservation links and buttons in the page
+  function detectOnYelpPage() {
+    // First, try to detect reservation platforms directly on Yelp page
     const links = document.querySelectorAll('a[href]');
-    const buttons = document.querySelectorAll('button, [role="button"]');
     const pageHTML = document.body.innerHTML.toLowerCase();
-    const pageText = document.body.innerText.toLowerCase();
 
-    console.log('ResoFinder: Checking', links.length, 'links, isLastAttempt:', isLastAttempt);
+    console.log('ResoFinder: Checking Yelp page for direct links...');
 
-    let detectedPlatform = null;
-    let bookingUrl = null;
-
-    // PRIORITY 1: Check actual URLs first (most reliable)
+    // Check actual URLs first (most reliable)
     for (let link of links) {
       const href = link.href.toLowerCase();
-
-      // Debug logging
-      if (href.includes('resy') || href.includes('opentable') || href.includes('tock')) {
-        console.log('ResoFinder DEBUG: Found platform URL:', href);
-      }
 
       for (let [key, platform] of Object.entries(PLATFORMS)) {
         if (platform.urlPatterns) {
           for (let urlPattern of platform.urlPatterns) {
             if (href.includes(urlPattern)) {
-              detectedPlatform = platform;
-              bookingUrl = link.href;
-              console.log('ResoFinder: MATCH! Platform:', platform.name, 'URL:', bookingUrl);
-              return { platform: detectedPlatform, url: bookingUrl };
+              console.log('ResoFinder: Found platform on Yelp:', platform.name);
+              return { platform: platform, url: link.href };
             }
           }
         }
       }
     }
 
-    // PRIORITY 2: Check link text and aria labels
-    for (let link of links) {
-      const linkText = link.innerText.toLowerCase();
-      const ariaLabel = (link.getAttribute('aria-label') || '').toLowerCase();
-
-      for (let [key, platform] of Object.entries(PLATFORMS)) {
-        for (let pattern of platform.patterns) {
-          // Skip URL patterns in text matching
-          if (pattern.includes('.com')) continue;
-
-          if (linkText.includes(pattern) || ariaLabel.includes(pattern)) {
-            detectedPlatform = platform;
-            bookingUrl = link.href;
-            return { platform: detectedPlatform, url: bookingUrl };
-          }
-        }
-      }
-    }
-
-    // PRIORITY 3: Check buttons for reservation text
-    for (let button of buttons) {
-      const buttonText = button.innerText.toLowerCase();
-      const ariaLabel = (button.getAttribute('aria-label') || '').toLowerCase();
-      const onclick = (button.getAttribute('onclick') || '').toLowerCase();
-
-      for (let [key, platform] of Object.entries(PLATFORMS)) {
-        for (let pattern of platform.patterns) {
-          // Skip URL patterns in text matching
-          if (pattern.includes('.com')) continue;
-
-          if (buttonText.includes(pattern) || ariaLabel.includes(pattern) || onclick.includes(pattern)) {
-            detectedPlatform = platform;
-            // Try to find the actual link
-            const parentLink = button.closest('a[href]');
-            if (parentLink) {
-              bookingUrl = parentLink.href;
-            }
-            return { platform: detectedPlatform, url: bookingUrl };
-          }
-        }
-      }
-    }
-
-    // PRIORITY 4: Check HTML source for platform URLs (sometimes hidden in data attributes)
+    // Check HTML source for platform URLs
     for (let [key, platform] of Object.entries(PLATFORMS)) {
       if (platform.urlPatterns) {
         for (let urlPattern of platform.urlPatterns) {
           if (pageHTML.includes(urlPattern)) {
-            detectedPlatform = platform;
-            // Try to extract the URL from HTML
+            console.log('ResoFinder: Found platform in Yelp HTML:', platform.name);
             const urlMatch = pageHTML.match(new RegExp(`https?://[^"'\\s]*${urlPattern}[^"'\\s]*`, 'i'));
-            if (urlMatch) {
-              bookingUrl = urlMatch[0].replace(/&amp;/g, '&');
-            }
-            return { platform: detectedPlatform, url: bookingUrl };
+            const bookingUrl = urlMatch ? urlMatch[0].replace(/&amp;/g, '&') : null;
+            return { platform: platform, url: bookingUrl };
           }
         }
       }
     }
 
-    // Only show fallback options on the last attempt to avoid premature detection
-    if (!detectedPlatform && isLastAttempt) {
-      const hasReservationMention = pageText.includes('reservation') ||
-                                     pageText.includes('book a table') ||
-                                     pageText.includes('make a reservation');
+    return null;
+  }
 
-      if (hasReservationMention) {
-        return {
-          platform: {
-            name: 'Call for Reservations',
-            color: '#666666',
-            icon: '📞'
-          },
-          url: null
-        };
+  function getRestaurantWebsite() {
+    // Look for the restaurant's website link on Yelp
+    // Yelp uses biz_redir for business website links
+    const websiteLink = document.querySelector('a[href*="biz_redir"]');
+
+    if (websiteLink) {
+      // Extract the actual website URL from Yelp's redirect
+      const href = websiteLink.href;
+      const urlMatch = href.match(/url=([^&]+)/);
+      if (urlMatch) {
+        const websiteUrl = decodeURIComponent(urlMatch[1]);
+        console.log('ResoFinder: Found restaurant website:', websiteUrl);
+        return websiteUrl;
       }
-
-      return {
-        platform: {
-          name: 'Walk-in Only',
-          color: '#999999',
-          icon: '🚶'
-        },
-        url: null
-      };
     }
 
+    // Alternative: look for website section
+    const websiteLinks = Array.from(document.querySelectorAll('a')).filter(a => {
+      const text = a.innerText.toLowerCase();
+      return text.includes('business website') || text.includes('visit website');
+    });
+
+    if (websiteLinks.length > 0 && websiteLinks[0].href) {
+      const href = websiteLinks[0].href;
+      if (href.includes('biz_redir')) {
+        const urlMatch = href.match(/url=([^&]+)/);
+        if (urlMatch) {
+          return decodeURIComponent(urlMatch[1]);
+        }
+      }
+    }
+
+    console.log('ResoFinder: No restaurant website found on Yelp');
     return null;
+  }
+
+  async function fetchRestaurantWebsite(websiteUrl) {
+    console.log('ResoFinder: Requesting background to fetch:', websiteUrl);
+
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage(
+        { action: 'fetchWebsite', url: websiteUrl },
+        (response) => {
+          if (chrome.runtime.lastError) {
+            console.error('ResoFinder: Error communicating with background:', chrome.runtime.lastError);
+            resolve(null);
+          } else if (response && response.platform) {
+            console.log('ResoFinder: Found platform on website:', response.platform.name);
+            resolve(response);
+          } else {
+            console.log('ResoFinder: No platform found on website');
+            resolve(null);
+          }
+        }
+      );
+    });
   }
 
   function createBadge(platformInfo) {
@@ -196,17 +168,14 @@
       badge.title = platformInfo.platform.name;
     }
 
-    // Insert badge near the contact info (phone, website, address)
-    // Look for common Yelp contact info selectors
+    // Insert badge near the contact info
     const contactSection = document.querySelector('[aria-label*="Contact"]') ||
                            document.querySelector('[aria-label*="Location"]') ||
                            document.querySelector('section:has(a[href^="tel:"])') ||
-                           document.querySelector('.arrange-unit__09f24__rqHTg') ||
                            document.querySelector('[data-testid="business-phone"]') ||
                            document.querySelector('p:has(a[href^="tel:"])');
 
     if (contactSection) {
-      // Insert as first child of contact section
       contactSection.insertBefore(badge, contactSection.firstChild);
     } else {
       // Fallback: try to find phone number or website links
@@ -227,36 +196,75 @@
         }
       }
     }
+
+    console.log('ResoFinder: Badge created successfully');
+  }
+
+  function showFallbackBadge() {
+    const pageText = document.body.innerText.toLowerCase();
+    const hasReservationMention = pageText.includes('reservation') ||
+                                   pageText.includes('book a table') ||
+                                   pageText.includes('make a reservation');
+
+    if (hasReservationMention) {
+      createBadge({
+        platform: {
+          name: 'Call for Reservations',
+          color: '#666666',
+          icon: '📞'
+        },
+        url: null
+      });
+    } else {
+      createBadge({
+        platform: {
+          name: 'Walk-in Only',
+          color: '#999999',
+          icon: '🚶'
+        },
+        url: null
+      });
+    }
   }
 
   // Main execution
-  function init() {
+  async function init() {
     // Wait for page to fully load
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', init);
       return;
     }
 
-    // Try multiple times as Yelp loads content dynamically
-    let attempts = 0;
-    const maxAttempts = 8; // Increased from 5
+    console.log('ResoFinder: Starting detection...');
 
-    function tryDetect() {
-      attempts++;
-      const isLastAttempt = attempts >= maxAttempts;
+    // Wait a bit for Yelp to load content
+    await new Promise(resolve => setTimeout(resolve, 2000));
 
-      const platformInfo = detectReservationPlatform(isLastAttempt);
+    // Step 1: Check if platform is directly on Yelp page
+    let platformInfo = detectOnYelpPage();
+
+    if (platformInfo) {
+      console.log('ResoFinder: Platform found on Yelp page');
+      createBadge(platformInfo);
+      return;
+    }
+
+    // Step 2: Get restaurant website and fetch it
+    console.log('ResoFinder: No platform on Yelp, checking restaurant website...');
+    const websiteUrl = getRestaurantWebsite();
+
+    if (websiteUrl) {
+      platformInfo = await fetchRestaurantWebsite(websiteUrl);
+
       if (platformInfo) {
         createBadge(platformInfo);
-      } else if (attempts < maxAttempts) {
-        // Try again with increasing delay to catch late-loading content
-        const delay = attempts < 3 ? 500 : 1000;
-        setTimeout(tryDetect, delay);
+        return;
       }
     }
 
-    // Start detection after initial delay
-    setTimeout(tryDetect, 1000);
+    // Step 3: Show fallback badge
+    console.log('ResoFinder: Showing fallback badge');
+    showFallbackBadge();
   }
 
   init();

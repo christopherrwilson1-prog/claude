@@ -1,11 +1,17 @@
 {
   "manifest_version": 3,
   "name": "ResoFinder",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Instantly see which platform (Resy, OpenTable, etc.) a restaurant uses for reservations while browsing Yelp",
   "permissions": [
     "activeTab"
   ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "content_scripts": [
     {
       "matches": ["*://*.yelp.com/biz/*"],
