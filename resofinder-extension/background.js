@@ -14,22 +14,29 @@ const PLATFORMS = {
         console.log('ResoFinder: Searching Resy:', searchUrl);
 
         const response = await fetch(searchUrl);
-        if (!response.ok) return null;
+        console.log('ResoFinder: Resy response status:', response.status);
+
+        if (!response.ok) {
+          console.log('ResoFinder: Resy returned non-OK status');
+          return null;
+        }
 
         const data = await response.json();
+        console.log('ResoFinder: Resy data:', data);
 
         // Check if we got results
         if (data.results && data.results.venues && data.results.venues.length > 0) {
           const venue = data.results.venues[0];
+          console.log('ResoFinder: First Resy venue:', venue);
           const bookingUrl = `https://resy.com/cities/${venue.location.code}/${venue.url_slug}`;
           console.log('ResoFinder: ✓ Found on Resy:', bookingUrl);
           return bookingUrl;
         }
 
-        console.log('ResoFinder: ✗ Not found on Resy');
+        console.log('ResoFinder: ✗ Not found on Resy (no venues in results)');
         return null;
       } catch (error) {
-        console.log('ResoFinder: Error searching Resy:', error.message);
+        console.log('ResoFinder: Error searching Resy:', error.message, error);
         return null;
       }
     }
