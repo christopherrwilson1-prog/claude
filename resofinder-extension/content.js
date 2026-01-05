@@ -6,25 +6,25 @@
   // Platform detection patterns
   const PLATFORMS = {
     resy: {
-      name: 'Resy',
+      name: 'Book on Resy',
       color: '#D32323',
       patterns: ['resy.com', 'reserve on resy', 'book on resy'],
       icon: '🍽️'
     },
     opentable: {
-      name: 'OpenTable',
+      name: 'Book on OpenTable',
       color: '#DA3743',
       patterns: ['opentable.com', 'reserve on opentable', 'book a table'],
       icon: '📅'
     },
     tock: {
-      name: 'Tock',
+      name: 'Book on Tock',
       color: '#00A0A0',
       patterns: ['exploretock.com', 'book on tock'],
       icon: '🎫'
     },
     sevenrooms: {
-      name: 'SevenRooms',
+      name: 'Book on SevenRooms',
       color: '#000000',
       patterns: ['sevenrooms.com'],
       icon: '🔑'
@@ -103,10 +103,10 @@
                                    pageText.includes('make a reservation');
 
     if (!detectedPlatform && hasReservationMention) {
-      console.log('ResoFinder: Defaulting to Call to Reserve');
+      console.log('ResoFinder: Defaulting to Call for Reservations');
       return {
         platform: {
-          name: 'Call to Reserve',
+          name: 'Call for Reservations',
           color: '#666666',
           icon: '📞'
         },
