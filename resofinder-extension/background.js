@@ -1,17 +1,23 @@
 // ResoFinder Background Service Worker
 // Checks if restaurant exists on platforms by trying standard URL patterns
 
+// Helper function to normalize accented characters
+function normalizeSlug(text) {
+  return text.toLowerCase()
+    .normalize('NFD')  // Decompose accented characters
+    .replace(/[\u0300-\u036f]/g, '')  // Remove diacritics
+    .replace(/['']/g, '')  // Remove apostrophes
+    .replace(/[^a-z0-9]+/g, '-')  // Replace non-alphanumeric with hyphens
+    .replace(/^-|-$/g, '');  // Remove leading/trailing hyphens
+}
+
 const PLATFORMS = {
   opentable: {
     name: 'Book on OpenTable',
     color: '#DA3743',
     icon: '📅',
     buildUrls: (restaurantName, city) => {
-      const slug = restaurantName.toLowerCase()
-        .replace(/['']/g, '')
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-|-$/g, '');
-
+      const slug = normalizeSlug(restaurantName);
       const citySlug = city.toLowerCase().replace(/\s+/g, '-');
 
       return [
@@ -26,10 +32,7 @@ const PLATFORMS = {
     color: '#D32323',
     icon: '🍽️',
     buildUrls: (restaurantName, city) => {
-      const slug = restaurantName.toLowerCase()
-        .replace(/['']/g, '')  // Remove apostrophes
-        .replace(/[^a-z0-9]+/g, '-')  // Replace non-alphanumeric with hyphens
-        .replace(/^-|-$/g, '');  // Remove leading/trailing hyphens
+      const slug = normalizeSlug(restaurantName);
 
       // Try multiple city formats
       return [
@@ -44,10 +47,7 @@ const PLATFORMS = {
     color: '#00A0A0',
     icon: '🎫',
     buildUrls: (restaurantName, city) => {
-      const slug = restaurantName.toLowerCase()
-        .replace(/['']/g, '')
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-|-$/g, '');
+      const slug = normalizeSlug(restaurantName);
 
       return [
         `https://www.exploretock.com/${slug}`,
