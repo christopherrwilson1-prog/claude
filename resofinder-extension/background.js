@@ -2,24 +2,6 @@
 // Checks if restaurant exists on platforms by trying standard URL patterns
 
 const PLATFORMS = {
-  resy: {
-    name: 'Book on Resy',
-    color: '#D32323',
-    icon: '🍽️',
-    buildUrls: (restaurantName, city) => {
-      const slug = restaurantName.toLowerCase()
-        .replace(/['']/g, '')  // Remove apostrophes
-        .replace(/[^a-z0-9]+/g, '-')  // Replace non-alphanumeric with hyphens
-        .replace(/^-|-$/g, '');  // Remove leading/trailing hyphens
-
-      // Try multiple city formats
-      return [
-        `https://resy.com/cities/la/${slug}`,
-        `https://resy.com/cities/los-angeles/${slug}`,
-        `https://resy.com/cities/losangeles/${slug}`
-      ];
-    }
-  },
   opentable: {
     name: 'Book on OpenTable',
     color: '#DA3743',
@@ -36,6 +18,24 @@ const PLATFORMS = {
         `https://www.opentable.com/r/${slug}-${citySlug}`,
         `https://www.opentable.com/r/${slug}-los-angeles`,
         `https://www.opentable.com/${slug}`
+      ];
+    }
+  },
+  resy: {
+    name: 'Book on Resy',
+    color: '#D32323',
+    icon: '🍽️',
+    buildUrls: (restaurantName, city) => {
+      const slug = restaurantName.toLowerCase()
+        .replace(/['']/g, '')  // Remove apostrophes
+        .replace(/[^a-z0-9]+/g, '-')  // Replace non-alphanumeric with hyphens
+        .replace(/^-|-$/g, '');  // Remove leading/trailing hyphens
+
+      // Try multiple city formats
+      return [
+        `https://resy.com/cities/la/${slug}`,
+        `https://resy.com/cities/los-angeles/${slug}`,
+        `https://resy.com/cities/losangeles/${slug}`
       ];
     }
   },
