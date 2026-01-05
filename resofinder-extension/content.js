@@ -38,11 +38,13 @@
     }
 
     console.log('ResoFinder: Restaurant info:', { name: restaurantName, city: city });
+    console.log('ResoFinder: Name:', restaurantName, 'City:', city);
     return { name: restaurantName, city: city };
   }
 
   async function findPlatform(restaurantInfo) {
     console.log('ResoFinder: Searching platforms for', restaurantInfo.name);
+    console.log('ResoFinder: Sending message to background worker...');
 
     return new Promise((resolve) => {
       chrome.runtime.sendMessage(
@@ -52,14 +54,16 @@
           city: restaurantInfo.city
         },
         (response) => {
+          console.log('ResoFinder: Received response from background:', response);
+
           if (chrome.runtime.lastError) {
-            console.error('ResoFinder: Error:', chrome.runtime.lastError);
+            console.error('ResoFinder: Chrome runtime error:', chrome.runtime.lastError);
             resolve(null);
           } else if (response && response.platform) {
-            console.log('ResoFinder: Found on', response.platform.name);
+            console.log('ResoFinder: Found on', response.platform.name, 'URL:', response.url);
             resolve(response);
           } else {
-            console.log('ResoFinder: Not found on any platform');
+            console.log('ResoFinder: Response has no platform, response:', response);
             resolve(null);
           }
         }
