@@ -20,9 +20,14 @@ const PLATFORMS = {
       const slug = normalizeSlug(restaurantName);
       const citySlug = city.toLowerCase().replace(/\s+/g, '-');
 
+      // Try multiple variations including neighborhood codes
       return [
         `https://www.opentable.com/r/${slug}-${citySlug}`,
+        `https://www.opentable.com/r/${slug}-dtla-los-angeles`,  // Downtown LA
+        `https://www.opentable.com/r/${slug}-la-los-angeles`,    // LA suffix
         `https://www.opentable.com/r/${slug}-los-angeles`,
+        `https://www.opentable.com/r/${slug}-west-hollywood`,
+        `https://www.opentable.com/r/${slug}-santa-monica`,
         `https://www.opentable.com/${slug}`
       ];
     }
