@@ -1,142 +1,108 @@
 // ResoFinder Background Service Worker
-// Searches Resy, OpenTable, Tock for the restaurant
+// Checks if restaurant exists on platforms by trying standard URL patterns
 
 const PLATFORMS = {
   resy: {
     name: 'Book on Resy',
     color: '#D32323',
     icon: '🍽️',
-    search: async (restaurantName, city) => {
-      try {
-        const query = encodeURIComponent(`${restaurantName} ${city}`);
-        const searchUrl = `https://api.resy.com/3/venuesearch/search?query=${query}&geo={"latitude":34.0522,"longitude":-118.2437}`;
+    buildUrls: (restaurantName, city) => {
+      const slug = restaurantName.toLowerCase()
+        .replace(/['']/g, '')  // Remove apostrophes
+        .replace(/[^a-z0-9]+/g, '-')  // Replace non-alphanumeric with hyphens
+        .replace(/^-|-$/g, '');  // Remove leading/trailing hyphens
 
-        console.log('ResoFinder: Searching Resy:', searchUrl);
-
-        const response = await fetch(searchUrl);
-        console.log('ResoFinder: Resy response status:', response.status);
-
-        if (!response.ok) {
-          console.log('ResoFinder: Resy returned non-OK status');
-          return null;
-        }
-
-        const data = await response.json();
-        console.log('ResoFinder: Resy data:', data);
-
-        // Check if we got results
-        if (data.results && data.results.venues && data.results.venues.length > 0) {
-          const venue = data.results.venues[0];
-          console.log('ResoFinder: First Resy venue:', venue);
-          const bookingUrl = `https://resy.com/cities/${venue.location.code}/${venue.url_slug}`;
-          console.log('ResoFinder: ✓ Found on Resy:', bookingUrl);
-          return bookingUrl;
-        }
-
-        console.log('ResoFinder: ✗ Not found on Resy (no venues in results)');
-        return null;
-      } catch (error) {
-        console.log('ResoFinder: Error searching Resy:', error.message, error);
-        return null;
-      }
+      // Try multiple city formats
+      return [
+        `https://resy.com/cities/la/${slug}`,
+        `https://resy.com/cities/los-angeles/${slug}`,
+        `https://resy.com/cities/losangeles/${slug}`
+      ];
     }
   },
   opentable: {
     name: 'Book on OpenTable',
     color: '#DA3743',
     icon: '📅',
-    search: async (restaurantName, city) => {
-      try {
-        const query = encodeURIComponent(`${restaurantName} ${city}`);
-        const searchUrl = `https://www.opentable.com/search/?term=${query}`;
+    buildUrls: (restaurantName, city) => {
+      const slug = restaurantName.toLowerCase()
+        .replace(/['']/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '');
 
-        console.log('ResoFinder: Searching OpenTable:', searchUrl);
+      const citySlug = city.toLowerCase().replace(/\s+/g, '-');
 
-        const response = await fetch(searchUrl);
-        if (!response.ok) return null;
-
-        const html = await response.text();
-
-        // Parse HTML to find restaurant link
-        // OpenTable uses format like /r/restaurant-name-city
-        const linkMatch = html.match(/href="(\/r\/[^"]+)"/i);
-        if (linkMatch) {
-          const bookingUrl = `https://www.opentable.com${linkMatch[1]}`;
-          console.log('ResoFinder: ✓ Found on OpenTable:', bookingUrl);
-          return bookingUrl;
-        }
-
-        console.log('ResoFinder: ✗ Not found on OpenTable');
-        return null;
-      } catch (error) {
-        console.log('ResoFinder: Error searching OpenTable:', error.message);
-        return null;
-      }
+      return [
+        `https://www.opentable.com/r/${slug}-${citySlug}`,
+        `https://www.opentable.com/r/${slug}-los-angeles`,
+        `https://www.opentable.com/${slug}`
+      ];
     }
   },
   tock: {
     name: 'Book on Tock',
     color: '#00A0A0',
     icon: '🎫',
-    search: async (restaurantName, city) => {
-      try {
-        const query = encodeURIComponent(restaurantName);
-        const searchUrl = `https://www.exploretock.com/api/consumer/v2/search?term=${query}`;
+    buildUrls: (restaurantName, city) => {
+      const slug = restaurantName.toLowerCase()
+        .replace(/['']/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '');
 
-        console.log('ResoFinder: Searching Tock:', searchUrl);
-
-        const response = await fetch(searchUrl);
-        if (!response.ok) return null;
-
-        const data = await response.json();
-
-        // Check if we got results
-        if (data.businesses && data.businesses.length > 0) {
-          const business = data.businesses[0];
-          const bookingUrl = `https://www.exploretock.com/${business.url_slug}`;
-          console.log('ResoFinder: ✓ Found on Tock:', bookingUrl);
-          return bookingUrl;
-        }
-
-        console.log('ResoFinder: ✗ Not found on Tock');
-        return null;
-      } catch (error) {
-        console.log('ResoFinder: Error searching Tock:', error.message);
-        return null;
-      }
+      return [
+        `https://www.exploretock.com/${slug}`,
+        `https://www.exploretock.com/${slug}-${city.toLowerCase().replace(/\s+/g, '-')}`
+      ];
     }
   }
 };
 
-// Listen for messages from content script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'findPlatform') {
     findRestaurantPlatform(request.name, request.city).then(result => {
       sendResponse(result);
     }).catch(error => {
-      console.error('ResoFinder: Error finding platform:', error);
+      console.error('ResoFinder: Error:', error);
       sendResponse({ platform: null, url: null });
     });
-    return true; // Keep channel open for async response
+    return true;
   }
 });
 
 async function findRestaurantPlatform(restaurantName, city) {
   console.log('ResoFinder: Searching for:', restaurantName, 'in', city);
 
-  // Try each platform in order
+  // Try each platform
   for (let [key, platform] of Object.entries(PLATFORMS)) {
-    const bookingUrl = await platform.search(restaurantName, city);
+    const urls = platform.buildUrls(restaurantName, city);
 
-    if (bookingUrl) {
-      return {
-        platform: {
-          name: platform.name,
-          color: platform.color,
-          icon: platform.icon
-        },
-        url: bookingUrl
-      };
+    // Try each URL variant
+    for (let url of urls) {
+      try {
+        console.log(`ResoFinder: Trying ${platform.name}:`, url);
+
+        const response = await fetch(url, {
+          method: 'HEAD',
+          redirect: 'follow'
+        });
+
+        console.log(`ResoFinder: Response status:`, response.status, response.url);
+
+        // 200 = found, 404 = not found
+        if (response.ok && response.status === 200) {
+          console.log(`ResoFinder: ✓ Found on ${platform.name}!`);
+          return {
+            platform: {
+              name: platform.name,
+              color: platform.color,
+              icon: platform.icon
+            },
+            url: response.url  // Use final URL after redirects
+          };
+        }
+      } catch (error) {
+        console.log(`ResoFinder: Error checking ${url}:`, error.message);
+      }
     }
   }
 
