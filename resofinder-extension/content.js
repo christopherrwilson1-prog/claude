@@ -4,29 +4,34 @@
   'use strict';
 
   // Platform detection patterns
+  // Note: Patterns are checked in order - more specific patterns should come first
   const PLATFORMS = {
     resy: {
       name: 'Book on Resy',
       color: '#D32323',
-      patterns: ['resy.com', 'reserve on resy', 'book on resy'],
+      patterns: ['resy.com', 'reserve on resy', 'book on resy', 'resy'],
+      urlPatterns: ['resy.com'],
       icon: '🍽️'
     },
     opentable: {
       name: 'Book on OpenTable',
       color: '#DA3743',
-      patterns: ['opentable.com', 'reserve on opentable', 'book a table'],
+      patterns: ['opentable.com', 'reserve on opentable', 'book on opentable'],
+      urlPatterns: ['opentable.com'],
       icon: '📅'
     },
     tock: {
       name: 'Book on Tock',
       color: '#00A0A0',
-      patterns: ['exploretock.com', 'book on tock'],
+      patterns: ['exploretock.com', 'tock.com', 'book on tock'],
+      urlPatterns: ['exploretock.com', 'tock.com'],
       icon: '🎫'
     },
     sevenrooms: {
       name: 'Book on SevenRooms',
       color: '#000000',
       patterns: ['sevenrooms.com'],
+      urlPatterns: ['sevenrooms.com'],
       icon: '🔑'
     }
   };
@@ -41,25 +46,45 @@
     let detectedPlatform = null;
     let bookingUrl = null;
 
-    // First, check all links for reservation platform URLs
+    // PRIORITY 1: Check actual URLs first (most reliable)
     for (let link of links) {
       const href = link.href.toLowerCase();
+
+      for (let [key, platform] of Object.entries(PLATFORMS)) {
+        if (platform.urlPatterns) {
+          for (let urlPattern of platform.urlPatterns) {
+            if (href.includes(urlPattern)) {
+              detectedPlatform = platform;
+              bookingUrl = link.href;
+              console.log('ResoFinder: Found platform via URL match', platform.name, bookingUrl);
+              return { platform: detectedPlatform, url: bookingUrl };
+            }
+          }
+        }
+      }
+    }
+
+    // PRIORITY 2: Check link text and aria labels
+    for (let link of links) {
       const linkText = link.innerText.toLowerCase();
       const ariaLabel = (link.getAttribute('aria-label') || '').toLowerCase();
 
       for (let [key, platform] of Object.entries(PLATFORMS)) {
         for (let pattern of platform.patterns) {
-          if (href.includes(pattern) || linkText.includes(pattern) || ariaLabel.includes(pattern)) {
+          // Skip URL patterns in text matching
+          if (pattern.includes('.com')) continue;
+
+          if (linkText.includes(pattern) || ariaLabel.includes(pattern)) {
             detectedPlatform = platform;
             bookingUrl = link.href;
-            console.log('ResoFinder: Found platform via link', platform.name, bookingUrl);
+            console.log('ResoFinder: Found platform via link text', platform.name, bookingUrl);
             return { platform: detectedPlatform, url: bookingUrl };
           }
         }
       }
     }
 
-    // Check buttons for reservation text
+    // PRIORITY 3: Check buttons for reservation text
     for (let button of buttons) {
       const buttonText = button.innerText.toLowerCase();
       const ariaLabel = (button.getAttribute('aria-label') || '').toLowerCase();
@@ -67,6 +92,9 @@
 
       for (let [key, platform] of Object.entries(PLATFORMS)) {
         for (let pattern of platform.patterns) {
+          // Skip URL patterns in text matching
+          if (pattern.includes('.com')) continue;
+
           if (buttonText.includes(pattern) || ariaLabel.includes(pattern) || onclick.includes(pattern)) {
             detectedPlatform = platform;
             // Try to find the actual link
@@ -81,18 +109,20 @@
       }
     }
 
-    // Check HTML source for platform URLs (sometimes hidden in data attributes)
+    // PRIORITY 4: Check HTML source for platform URLs (sometimes hidden in data attributes)
     for (let [key, platform] of Object.entries(PLATFORMS)) {
-      for (let pattern of platform.patterns) {
-        if (pageHTML.includes(pattern)) {
-          detectedPlatform = platform;
-          console.log('ResoFinder: Found platform in HTML', platform.name);
-          // Try to extract the URL from HTML
-          const urlMatch = pageHTML.match(new RegExp(`https?://[^"'\\s]*${pattern}[^"'\\s]*`, 'i'));
-          if (urlMatch) {
-            bookingUrl = urlMatch[0].replace(/&amp;/g, '&');
+      if (platform.urlPatterns) {
+        for (let urlPattern of platform.urlPatterns) {
+          if (pageHTML.includes(urlPattern)) {
+            detectedPlatform = platform;
+            console.log('ResoFinder: Found platform in HTML source', platform.name);
+            // Try to extract the URL from HTML
+            const urlMatch = pageHTML.match(new RegExp(`https?://[^"'\\s]*${urlPattern}[^"'\\s]*`, 'i'));
+            if (urlMatch) {
+              bookingUrl = urlMatch[0].replace(/&amp;/g, '&');
+            }
+            return { platform: detectedPlatform, url: bookingUrl };
           }
-          return { platform: detectedPlatform, url: bookingUrl };
         }
       }
     }
