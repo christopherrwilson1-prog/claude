@@ -34,11 +34,30 @@ async function searchResy(restaurantName) {
     const response = await fetch(searchUrl);
     const html = await response.text();
 
-    // Look for venue links in the HTML
-    // Resy uses format like: /cities/los-angeles-ca/venues/found-oyster
-    const venueMatch = html.match(/href="(\/cities\/[^"]*\/venues\/[^"]+)"/i);
+    console.log('ResoFinder: Got Resy HTML, length:', html.length);
 
-    if (venueMatch) {
+    // Look for venue links - try multiple patterns
+    let venueMatch = html.match(/href="(\/cities\/[^"]*\/venues\/[^"]+)"/i);
+
+    if (!venueMatch) {
+      // Try alternate pattern: {"url_slug":"republique",...}
+      const slugMatch = html.match(/"url_slug":"([^"]+)"/);
+      if (slugMatch) {
+        console.log('ResoFinder: Found slug in JSON:', slugMatch[1]);
+        // Try to find the city code too
+        const cityMatch = html.match(/"location":\{"code":"([^"]+)"/);
+        if (cityMatch) {
+          const url = `https://resy.com/cities/${cityMatch[1]}/${slugMatch[1]}`;
+          console.log('ResoFinder: ✓ Found on Resy:', url);
+          return {
+            name: 'Book on Resy',
+            color: '#D32323',
+            icon: '🍽️',
+            url: url
+          };
+        }
+      }
+    } else {
       const url = `https://resy.com${venueMatch[1]}`;
       console.log('ResoFinder: ✓ Found on Resy:', url);
       return {
@@ -66,6 +85,8 @@ async function searchOpenTable(restaurantName) {
 
     const response = await fetch(searchUrl);
     const html = await response.text();
+
+    console.log('ResoFinder: Got OpenTable HTML, length:', html.length);
 
     // Look for restaurant links in the HTML
     // OpenTable uses format like: /r/restaurant-name-location
