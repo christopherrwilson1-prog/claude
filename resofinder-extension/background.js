@@ -35,6 +35,7 @@ async function searchResy(restaurantName) {
     const html = await response.text();
 
     console.log('ResoFinder: Got Resy HTML, length:', html.length);
+    console.log('ResoFinder: HTML sample:', html.substring(0, 500));
 
     // Look for venue links - try multiple patterns
     let venueMatch = html.match(/href="(\/cities\/[^"]*\/venues\/[^"]+)"/i);
@@ -87,6 +88,7 @@ async function searchOpenTable(restaurantName) {
     const html = await response.text();
 
     console.log('ResoFinder: Got OpenTable HTML, length:', html.length);
+    console.log('ResoFinder: OpenTable HTML sample:', html.substring(0, 500));
 
     // Look for restaurant links in the HTML
     // OpenTable uses format like: /r/restaurant-name-location
