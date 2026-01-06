@@ -14,10 +14,10 @@
     const restaurantName = nameElement.innerText.trim();
     console.log('ResoFinder: Restaurant name:', restaurantName);
 
-    // Ask background worker to search platforms
+    // Ask background worker to find restaurant
     return new Promise((resolve) => {
       chrome.runtime.sendMessage(
-        { action: 'searchPlatforms', name: restaurantName },
+        { action: 'findRestaurant', name: restaurantName },
         (response) => {
           if (chrome.runtime.lastError) {
             console.error('ResoFinder: Error:', chrome.runtime.lastError);
