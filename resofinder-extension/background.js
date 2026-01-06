@@ -1,85 +1,91 @@
 // ResoFinder Background Service Worker
-// Simple approach: Try standard URL patterns for each platform
-
-function createSlug(name) {
-  return name.toLowerCase()
-    .normalize('NFD')  // Handle accents: é → e
-    .replace(/[\u0300-\u036f]/g, '')  // Remove diacritics
-    .replace(/[^a-z0-9]+/g, '-')  // Replace non-alphanumeric with dash
-    .replace(/^-|-$/g, '');  // Remove leading/trailing dashes
-}
+// Search Resy and OpenTable for the restaurant
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === 'checkPlatforms') {
-    checkPlatforms(request.name).then(result => {
+  if (request.action === 'searchPlatforms') {
+    searchPlatforms(request.name).then(result => {
       sendResponse(result);
     });
-    return true;  // Keep channel open
+    return true;
   }
 });
 
-async function checkPlatforms(restaurantName) {
-  console.log('ResoFinder: Checking platforms for:', restaurantName);
+async function searchPlatforms(restaurantName) {
+  console.log('ResoFinder: Searching for:', restaurantName);
 
-  const slug = createSlug(restaurantName);
-  console.log('ResoFinder: Slug:', slug);
+  // Try Resy first
+  const resyResult = await searchResy(restaurantName);
+  if (resyResult) return resyResult;
 
-  // Check Resy first
-  const resyUrls = [
-    `https://resy.com/cities/la/${slug}`,
-    `https://resy.com/cities/los-angeles/${slug}`
-  ];
+  // Try OpenTable
+  const opentableResult = await searchOpenTable(restaurantName);
+  if (opentableResult) return opentableResult;
 
-  for (let url of resyUrls) {
-    console.log('ResoFinder: Trying Resy:', url);
-    try {
-      const response = await fetch(url, { method: 'HEAD', redirect: 'follow' });
-      console.log('ResoFinder: Resy status:', response.status, response.url);
-
-      if (response.ok) {
-        console.log('ResoFinder: ✓ Found on Resy!');
-        return {
-          platform: 'resy',
-          name: 'Book on Resy',
-          color: '#D32323',
-          icon: '🍽️',
-          url: response.url
-        };
-      }
-    } catch (error) {
-      console.log('ResoFinder: Resy error:', error.message);
-    }
-  }
-
-  // Check OpenTable
-  const opentableUrls = [
-    `https://www.opentable.com/r/${slug}-los-angeles`,
-    `https://www.opentable.com/r/${slug}-dtla-los-angeles`,
-    `https://www.opentable.com/r/${slug}-west-hollywood`,
-    `https://www.opentable.com/r/${slug}-la`
-  ];
-
-  for (let url of opentableUrls) {
-    console.log('ResoFinder: Trying OpenTable:', url);
-    try {
-      const response = await fetch(url, { method: 'HEAD', redirect: 'follow' });
-      console.log('ResoFinder: OpenTable status:', response.status, response.url);
-
-      if (response.ok) {
-        console.log('ResoFinder: ✓ Found on OpenTable!');
-        return {
-          platform: 'opentable',
-          name: 'Book on OpenTable',
-          color: '#DA3743',
-          icon: '📅',
-          url: response.url
-        };
-      }
-    } catch (error) {
-      console.log('ResoFinder: OpenTable error:', error.message);
-    }
-  }
-
-  console.log('ResoFinder: Not found on any platform');
   return null;
+}
+
+async function searchResy(restaurantName) {
+  try {
+    const query = encodeURIComponent(restaurantName + ' Los Angeles');
+    const searchUrl = `https://resy.com/cities/la?search=${query}`;
+
+    console.log('ResoFinder: Searching Resy:', searchUrl);
+
+    const response = await fetch(searchUrl);
+    const html = await response.text();
+
+    // Look for venue links in the HTML
+    // Resy uses format like: /cities/los-angeles-ca/venues/found-oyster
+    const venueMatch = html.match(/href="(\/cities\/[^"]*\/venues\/[^"]+)"/i);
+
+    if (venueMatch) {
+      const url = `https://resy.com${venueMatch[1]}`;
+      console.log('ResoFinder: ✓ Found on Resy:', url);
+      return {
+        name: 'Book on Resy',
+        color: '#D32323',
+        icon: '🍽️',
+        url: url
+      };
+    }
+
+    console.log('ResoFinder: Not found on Resy');
+    return null;
+  } catch (error) {
+    console.log('ResoFinder: Resy error:', error.message);
+    return null;
+  }
+}
+
+async function searchOpenTable(restaurantName) {
+  try {
+    const query = encodeURIComponent(restaurantName + ' Los Angeles');
+    const searchUrl = `https://www.opentable.com/s?term=${query}`;
+
+    console.log('ResoFinder: Searching OpenTable:', searchUrl);
+
+    const response = await fetch(searchUrl);
+    const html = await response.text();
+
+    // Look for restaurant links in the HTML
+    // OpenTable uses format like: /r/restaurant-name-location
+    const restaurantMatch = html.match(/href="(\/r\/[^"]+)"/i);
+
+    if (restaurantMatch) {
+      const url = `https://www.opentable.com${restaurantMatch[1]}`;
+      console.log('ResoFinder: ✓ Found on OpenTable:', url);
+      return {
+        name: 'Book on OpenTable',
+        color: '#DA3743',
+        icon: '📅',
+        url: url
+      };
+    }
+
+    console.log('ResoFinder: Not found on OpenTable');
+    return null;
+  } catch (error) {
+    console.log('ResoFinder: OpenTable error:', error.message);
+    return null;
+  }
 }
