@@ -2,12 +2,12 @@
   "republique": {
     "name": "Republique",
     "platform": "resy",
-    "url": "https://resy.com/cities/los-angeles-ca/venues/republique"
+    "url": "https://resy.com/cities/los-angeles-ca/republique"
   },
   "found-oyster": {
     "name": "Found Oyster",
     "platform": "resy",
-    "url": "https://resy.com/cities/los-angeles-ca/venues/found-oyster"
+    "url": "https://resy.com/cities/los-angeles-ca/found-oyster"
   },
   "zinque": {
     "name": "Zinqué",
@@ -17,6 +17,16 @@
   "bestia": {
     "name": "Bestia",
     "platform": "resy",
-    "url": "https://resy.com/cities/los-angeles-ca/venues/bestia"
+    "url": "https://resy.com/cities/los-angeles-ca/bestia"
+  },
+  "gjelina": {
+    "name": "Gjelina",
+    "platform": "resy",
+    "url": "https://resy.com/cities/los-angeles-ca/gjelina"
+  },
+  "catch-la": {
+    "name": "Catch LA",
+    "platform": "resy",
+    "url": "https://resy.com/cities/los-angeles-ca/catch-la"
   }
 }
