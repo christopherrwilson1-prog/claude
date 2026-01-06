@@ -1,116 +1,85 @@
 // ResoFinder Background Service Worker
-// Checks if restaurant exists on platforms by trying standard URL patterns
+// Simple approach: Try standard URL patterns for each platform
 
-// Helper function to normalize accented characters
-function normalizeSlug(text) {
-  return text.toLowerCase()
-    .normalize('NFD')  // Decompose accented characters
+function createSlug(name) {
+  return name.toLowerCase()
+    .normalize('NFD')  // Handle accents: é → e
     .replace(/[\u0300-\u036f]/g, '')  // Remove diacritics
-    .replace(/['']/g, '')  // Remove apostrophes
-    .replace(/[^a-z0-9]+/g, '-')  // Replace non-alphanumeric with hyphens
-    .replace(/^-|-$/g, '');  // Remove leading/trailing hyphens
+    .replace(/[^a-z0-9]+/g, '-')  // Replace non-alphanumeric with dash
+    .replace(/^-|-$/g, '');  // Remove leading/trailing dashes
 }
 
-const PLATFORMS = {
-  resy: {
-    name: 'Book on Resy',
-    color: '#D32323',
-    icon: '🍽️',
-    buildUrls: (restaurantName, city) => {
-      const slug = normalizeSlug(restaurantName);
-
-      // Try multiple city formats
-      return [
-        `https://resy.com/cities/la/${slug}`,
-        `https://resy.com/cities/los-angeles/${slug}`,
-        `https://resy.com/cities/losangeles/${slug}`
-      ];
-    }
-  },
-  opentable: {
-    name: 'Book on OpenTable',
-    color: '#DA3743',
-    icon: '📅',
-    buildUrls: (restaurantName, city) => {
-      const slug = normalizeSlug(restaurantName);
-      const citySlug = city.toLowerCase().replace(/\s+/g, '-');
-
-      // Try multiple variations including neighborhood codes
-      return [
-        `https://www.opentable.com/r/${slug}-${citySlug}`,
-        `https://www.opentable.com/r/${slug}-dtla-los-angeles`,  // Downtown LA
-        `https://www.opentable.com/r/${slug}-la-los-angeles`,    // LA suffix
-        `https://www.opentable.com/r/${slug}-los-angeles`,
-        `https://www.opentable.com/r/${slug}-west-hollywood`,
-        `https://www.opentable.com/r/${slug}-santa-monica`,
-        `https://www.opentable.com/${slug}`
-      ];
-    }
-  },
-  tock: {
-    name: 'Book on Tock',
-    color: '#00A0A0',
-    icon: '🎫',
-    buildUrls: (restaurantName, city) => {
-      const slug = normalizeSlug(restaurantName);
-
-      return [
-        `https://www.exploretock.com/${slug}`,
-        `https://www.exploretock.com/${slug}-${city.toLowerCase().replace(/\s+/g, '-')}`
-      ];
-    }
-  }
-};
-
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === 'findPlatform') {
-    findRestaurantPlatform(request.name, request.city).then(result => {
+  if (request.action === 'checkPlatforms') {
+    checkPlatforms(request.name).then(result => {
       sendResponse(result);
-    }).catch(error => {
-      console.error('ResoFinder: Error:', error);
-      sendResponse({ platform: null, url: null });
     });
-    return true;
+    return true;  // Keep channel open
   }
 });
 
-async function findRestaurantPlatform(restaurantName, city) {
-  console.log('ResoFinder: Searching for:', restaurantName, 'in', city);
+async function checkPlatforms(restaurantName) {
+  console.log('ResoFinder: Checking platforms for:', restaurantName);
 
-  // Try each platform
-  for (let [key, platform] of Object.entries(PLATFORMS)) {
-    const urls = platform.buildUrls(restaurantName, city);
+  const slug = createSlug(restaurantName);
+  console.log('ResoFinder: Slug:', slug);
 
-    // Try each URL variant
-    for (let url of urls) {
-      try {
-        console.log(`ResoFinder: Trying ${platform.name}:`, url);
+  // Check Resy first
+  const resyUrls = [
+    `https://resy.com/cities/la/${slug}`,
+    `https://resy.com/cities/los-angeles/${slug}`
+  ];
 
-        const response = await fetch(url, {
-          method: 'HEAD',
-          redirect: 'follow'
-        });
+  for (let url of resyUrls) {
+    console.log('ResoFinder: Trying Resy:', url);
+    try {
+      const response = await fetch(url, { method: 'HEAD', redirect: 'follow' });
+      console.log('ResoFinder: Resy status:', response.status, response.url);
 
-        console.log(`ResoFinder: Response status:`, response.status, response.url);
-
-        // 200 = found, 404 = not found
-        if (response.ok && response.status === 200) {
-          console.log(`ResoFinder: ✓ Found on ${platform.name}!`);
-          return {
-            platform: {
-              name: platform.name,
-              color: platform.color,
-              icon: platform.icon
-            },
-            url: response.url  // Use final URL after redirects
-          };
-        }
-      } catch (error) {
-        console.log(`ResoFinder: Error checking ${url}:`, error.message);
+      if (response.ok) {
+        console.log('ResoFinder: ✓ Found on Resy!');
+        return {
+          platform: 'resy',
+          name: 'Book on Resy',
+          color: '#D32323',
+          icon: '🍽️',
+          url: response.url
+        };
       }
+    } catch (error) {
+      console.log('ResoFinder: Resy error:', error.message);
+    }
+  }
+
+  // Check OpenTable
+  const opentableUrls = [
+    `https://www.opentable.com/r/${slug}-los-angeles`,
+    `https://www.opentable.com/r/${slug}-dtla-los-angeles`,
+    `https://www.opentable.com/r/${slug}-west-hollywood`,
+    `https://www.opentable.com/r/${slug}-la`
+  ];
+
+  for (let url of opentableUrls) {
+    console.log('ResoFinder: Trying OpenTable:', url);
+    try {
+      const response = await fetch(url, { method: 'HEAD', redirect: 'follow' });
+      console.log('ResoFinder: OpenTable status:', response.status, response.url);
+
+      if (response.ok) {
+        console.log('ResoFinder: ✓ Found on OpenTable!');
+        return {
+          platform: 'opentable',
+          name: 'Book on OpenTable',
+          color: '#DA3743',
+          icon: '📅',
+          url: response.url
+        };
+      }
+    } catch (error) {
+      console.log('ResoFinder: OpenTable error:', error.message);
     }
   }
 
   console.log('ResoFinder: Not found on any platform');
-  return { platform: null, url: null };
+  return null;
 }
