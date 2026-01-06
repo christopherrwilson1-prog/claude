@@ -1,0 +1,22 @@
+{
+  "republique": {
+    "name": "Republique",
+    "platform": "resy",
+    "url": "https://resy.com/cities/los-angeles-ca/venues/republique"
+  },
+  "found-oyster": {
+    "name": "Found Oyster",
+    "platform": "resy",
+    "url": "https://resy.com/cities/los-angeles-ca/venues/found-oyster"
+  },
+  "zinque": {
+    "name": "Zinqué",
+    "platform": "opentable",
+    "url": "https://www.opentable.com/r/zinque-dtla-los-angeles"
+  },
+  "bestia": {
+    "name": "Bestia",
+    "platform": "resy",
+    "url": "https://resy.com/cities/los-angeles-ca/venues/bestia"
+  }
+}

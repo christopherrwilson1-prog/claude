@@ -1,0 +1,11 @@
+{
+  "name": "resofinder-database-builder",
+  "version": "1.0.0",
+  "description": "Automated database builder for ResoFinder extension",
+  "scripts": {
+    "build": "node build-database.js"
+  },
+  "dependencies": {
+    "puppeteer": "^21.0.0"
+  }
+}

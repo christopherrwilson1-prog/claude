@@ -19,6 +19,12 @@
       "css": ["styles.css"]
     }
   ],
+  "web_accessible_resources": [
+    {
+      "resources": ["database.json"],
+      "matches": ["<all_urls>"]
+    }
+  ],
   "icons": {
     "16": "icon16.png",
     "48": "icon48.png",

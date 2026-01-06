@@ -1,5 +1,20 @@
 // ResoFinder Background Service Worker
-// Try common URL patterns to find restaurants
+// Uses static database of restaurants
+
+let restaurantDatabase = {};
+
+// Load database when extension starts
+async function loadDatabase() {
+  try {
+    const response = await fetch(chrome.runtime.getURL('database.json'));
+    restaurantDatabase = await response.json();
+    console.log('ResoFinder: Database loaded,', Object.keys(restaurantDatabase).length, 'restaurants');
+  } catch (error) {
+    console.error('ResoFinder: Error loading database:', error);
+  }
+}
+
+loadDatabase();
 
 function createSlug(name) {
   return name.toLowerCase()
@@ -11,75 +26,46 @@ function createSlug(name) {
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'findRestaurant') {
-    findRestaurant(request.name).then(result => {
-      sendResponse(result);
-    });
+    const result = findRestaurant(request.name);
+    sendResponse(result);
     return true;
   }
 });
 
-async function findRestaurant(restaurantName) {
-  console.log('ResoFinder: Looking for:', restaurantName);
+function findRestaurant(restaurantName) {
+  console.log('ResoFinder: Looking up:', restaurantName);
 
   const slug = createSlug(restaurantName);
   console.log('ResoFinder: Slug:', slug);
 
-  // Try Resy first
-  const resyUrls = [
-    `https://resy.com/cities/la/${slug}`,
-    `https://resy.com/cities/los-angeles/${slug}`,
-    `https://resy.com/cities/los-angeles-ca/${slug}`
-  ];
+  const entry = restaurantDatabase[slug];
 
-  for (let url of resyUrls) {
-    console.log('ResoFinder: Trying Resy:', url);
-    try {
-      const response = await fetch(url, { method: 'HEAD', redirect: 'follow' });
-      console.log('ResoFinder: Resy response:', response.status, response.url);
+  if (entry) {
+    console.log('ResoFinder: ✓ Found in database:', entry.platform);
 
-      if (response.ok && response.status === 200) {
-        console.log('ResoFinder: ✓ Found on Resy!');
-        return {
-          name: 'Book on Resy',
-          color: '#D32323',
-          icon: '🍽️',
-          url: response.url
-        };
+    const platformInfo = {
+      resy: {
+        name: 'Book on Resy',
+        color: '#D32323',
+        icon: '🍽️'
+      },
+      opentable: {
+        name: 'Book on OpenTable',
+        color: '#DA3743',
+        icon: '📅'
       }
-    } catch (error) {
-      console.log('ResoFinder: Resy error:', error.message);
-    }
+    };
+
+    const platform = platformInfo[entry.platform];
+
+    return {
+      name: platform.name,
+      color: platform.color,
+      icon: platform.icon,
+      url: entry.url
+    };
   }
 
-  // Try OpenTable
-  const opentableUrls = [
-    `https://www.opentable.com/r/${slug}-los-angeles`,
-    `https://www.opentable.com/r/${slug}-dtla-los-angeles`,
-    `https://www.opentable.com/r/${slug}-west-hollywood`,
-    `https://www.opentable.com/r/${slug}-la-los-angeles`,
-    `https://www.opentable.com/r/${slug}`
-  ];
-
-  for (let url of opentableUrls) {
-    console.log('ResoFinder: Trying OpenTable:', url);
-    try {
-      const response = await fetch(url, { method: 'HEAD', redirect: 'follow' });
-      console.log('ResoFinder: OpenTable response:', response.status, response.url);
-
-      if (response.ok && response.status === 200) {
-        console.log('ResoFinder: ✓ Found on OpenTable!');
-        return {
-          name: 'Book on OpenTable',
-          color: '#DA3743',
-          icon: '📅',
-          url: response.url
-        };
-      }
-    } catch (error) {
-      console.log('ResoFinder: OpenTable error:', error.message);
-    }
-  }
-
-  console.log('ResoFinder: Not found');
+  console.log('ResoFinder: ✗ Not in database');
   return null;
 }
