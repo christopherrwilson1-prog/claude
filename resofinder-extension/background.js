@@ -12,6 +12,21 @@ function normalizeSlug(text) {
 }
 
 const PLATFORMS = {
+  resy: {
+    name: 'Book on Resy',
+    color: '#D32323',
+    icon: '🍽️',
+    buildUrls: (restaurantName, city) => {
+      const slug = normalizeSlug(restaurantName);
+
+      // Try multiple city formats
+      return [
+        `https://resy.com/cities/la/${slug}`,
+        `https://resy.com/cities/los-angeles/${slug}`,
+        `https://resy.com/cities/losangeles/${slug}`
+      ];
+    }
+  },
   opentable: {
     name: 'Book on OpenTable',
     color: '#DA3743',
@@ -29,21 +44,6 @@ const PLATFORMS = {
         `https://www.opentable.com/r/${slug}-west-hollywood`,
         `https://www.opentable.com/r/${slug}-santa-monica`,
         `https://www.opentable.com/${slug}`
-      ];
-    }
-  },
-  resy: {
-    name: 'Book on Resy',
-    color: '#D32323',
-    icon: '🍽️',
-    buildUrls: (restaurantName, city) => {
-      const slug = normalizeSlug(restaurantName);
-
-      // Try multiple city formats
-      return [
-        `https://resy.com/cities/la/${slug}`,
-        `https://resy.com/cities/los-angeles/${slug}`,
-        `https://resy.com/cities/losangeles/${slug}`
       ];
     }
   },
