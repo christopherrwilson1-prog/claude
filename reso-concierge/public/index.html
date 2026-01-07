@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reso Concierge - We Find Your Restaurant Reservations</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🍽️ Reso Concierge</h1>
+      <p class="tagline">Can't find a reservation? We'll find it for you.</p>
+    </header>
+
+    <section class="hero">
+      <h2>How It Works</h2>
+      <div class="steps">
+        <div class="step">
+          <div class="step-number">1</div>
+          <h3>Submit Request</h3>
+          <p>Tell us where and when you want to dine</p>
+        </div>
+        <div class="step">
+          <div class="step-number">2</div>
+          <h3>We Search</h3>
+          <p>We check Resy, OpenTable, Tock, and more</p>
+        </div>
+        <div class="step">
+          <div class="step-number">3</div>
+          <h3>You Book</h3>
+          <p>Get a direct link to reserve your table</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="request-form">
+      <h2>Request a Reservation</h2>
+      <form id="reservationForm">
+        <div class="form-group">
+          <label for="restaurant">Restaurant Name *</label>
+          <input type="text" id="restaurant" name="restaurant" required placeholder="e.g., Republique, Found Oyster">
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="date">Date *</label>
+            <input type="date" id="date" name="date" required>
+          </div>
+          <div class="form-group">
+            <label for="time">Time *</label>
+            <input type="time" id="time" name="time" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="partySize">Party Size *</label>
+          <select id="partySize" name="partySize" required>
+            <option value="">Select party size</option>
+            <option value="1">1 person</option>
+            <option value="2">2 people</option>
+            <option value="3">3 people</option>
+            <option value="4">4 people</option>
+            <option value="5">5 people</option>
+            <option value="6">6 people</option>
+            <option value="7">7 people</option>
+            <option value="8">8 people</option>
+            <option value="9+">9+ people</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="name">Your Name</label>
+          <input type="text" id="name" name="name" placeholder="John Doe">
+        </div>
+
+        <div class="form-group">
+          <label for="email">Email *</label>
+          <input type="email" id="email" name="email" required placeholder="you@example.com">
+        </div>
+
+        <div class="form-group">
+          <label for="phone">Phone (optional)</label>
+          <input type="tel" id="phone" name="phone" placeholder="(555) 123-4567">
+        </div>
+
+        <div class="form-group">
+          <label for="notes">Special Requests (optional)</label>
+          <textarea id="notes" name="notes" rows="3" placeholder="E.g., outdoor seating, dietary restrictions, celebration"></textarea>
+        </div>
+
+        <button type="submit" class="submit-btn">Find My Reservation</button>
+      </form>
+
+      <div id="successMessage" class="success-message" style="display: none;">
+        ✓ Request received! We'll search for your reservation and email you within 24 hours.
+      </div>
+    </section>
+
+    <section class="pricing">
+      <h2>Pricing</h2>
+      <div class="pricing-card">
+        <h3>$10 per successful booking</h3>
+        <p>Only pay if we find you a reservation</p>
+        <ul>
+          <li>✓ We search all major platforms</li>
+          <li>✓ Response within 24 hours</li>
+          <li>✓ Direct booking link provided</li>
+          <li>✓ No charge if unavailable</li>
+        </ul>
+      </div>
+    </section>
+
+    <footer>
+      <p>&copy; 2026 Reso Concierge. Los Angeles, CA.</p>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
