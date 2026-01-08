@@ -13,12 +13,14 @@ interface AuthState {
 
   // Actions
   signIn: (email: string, password: string) => Promise<void>
+  signInWithGoogle: () => Promise<void>
   signUp: (email: string, password: string, fullName: string) => Promise<void>
   signOut: () => Promise<void>
   resetPassword: (email: string) => Promise<void>
   setUser: (user: User | null) => void
   setSession: (session: any | null) => void
   initialize: () => Promise<void>
+  handleOAuthCallback: (url: string) => Promise<void>
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -183,6 +185,74 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (error) throw error
     } catch (error) {
       console.error('Password reset error:', error)
+      throw error
+    }
+  },
+
+  // Sign in with Google OAuth
+  signInWithGoogle: async () => {
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: 'studentorgbudget://auth/callback',
+        },
+      })
+
+      if (error) throw error
+
+      // OAuth will redirect to browser, callback handled by handleOAuthCallback
+    } catch (error) {
+      console.error('Google sign in error:', error)
+      throw error
+    }
+  },
+
+  // Handle OAuth callback (called when redirecting back from Google)
+  handleOAuthCallback: async (url: string) => {
+    try {
+      // Extract tokens from URL
+      const { data, error } = await supabase.auth.getSessionFromUrl({ url })
+
+      if (error) throw error
+      if (!data.session) throw new Error('No session in callback')
+
+      // Check if user profile exists
+      const { data: existingProfile } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', data.session.user.id)
+        .single()
+
+      // Create profile if doesn't exist (first time Google sign-in)
+      if (!existingProfile) {
+        const { error: profileError } = await supabase
+          .from('users')
+          .insert({
+            id: data.session.user.id,
+            email: data.session.user.email!,
+            full_name: data.session.user.user_metadata.full_name || data.session.user.user_metadata.name || null,
+            avatar_url: data.session.user.user_metadata.avatar_url || null,
+            phone: null,
+          })
+
+        if (profileError) throw profileError
+      }
+
+      // Get user profile
+      const { data: userProfile } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', data.session.user.id)
+        .single()
+
+      set({
+        user: userProfile,
+        session: data.session,
+        isAuthenticated: true,
+      })
+    } catch (error) {
+      console.error('OAuth callback error:', error)
       throw error
     }
   },

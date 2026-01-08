@@ -1,8 +1,8 @@
-// Login Screen
+// Enhanced Login Screen with Google Sign-In
 
 import React, { useState } from 'react'
 import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert } from 'react-native'
-import { Button, Text, TextInput, ActivityIndicator } from 'react-native-paper'
+import { Button, Text, TextInput, Divider } from 'react-native-paper'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -13,7 +13,7 @@ type NavigationProp = NativeStackNavigationProp<any>
 
 export const LoginScreen = () => {
   const navigation = useNavigation<NavigationProp>()
-  const signIn = useAuthStore((state) => state.signIn)
+  const { signIn, signInWithGoogle } = useAuthStore()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -38,7 +38,7 @@ export const LoginScreen = () => {
     return Object.keys(newErrors).length === 0
   }
 
-  const handleLogin = async () => {
+  const handleEmailLogin = async () => {
     if (!validate()) return
 
     try {
@@ -53,6 +53,22 @@ export const LoginScreen = () => {
         [{ text: 'OK' }]
       )
     } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleGoogleLogin = async () => {
+    try {
+      setIsLoading(true)
+      await signInWithGoogle()
+      // Will redirect to Google OAuth in browser
+    } catch (error: any) {
+      console.error('Google login error:', error)
+      Alert.alert(
+        'Google Sign-In Failed',
+        error.message || 'Unable to sign in with Google. Please try again.',
+        [{ text: 'OK' }]
+      )
       setIsLoading(false)
     }
   }
@@ -76,6 +92,28 @@ export const LoginScreen = () => {
             </Text>
           </View>
 
+          {/* Google Sign-In Button */}
+          <Button
+            mode="outlined"
+            onPress={handleGoogleLogin}
+            disabled={isLoading}
+            style={styles.googleButton}
+            contentStyle={styles.buttonContent}
+            icon="google"
+          >
+            Continue with Google
+          </Button>
+
+          {/* Divider */}
+          <View style={styles.dividerContainer}>
+            <Divider style={styles.divider} />
+            <Text variant="bodyMedium" style={styles.dividerText}>
+              or sign in with email
+            </Text>
+            <Divider style={styles.divider} />
+          </View>
+
+          {/* Email/Password Form */}
           <View style={styles.form}>
             <TextInput
               label="Email"
@@ -136,7 +174,7 @@ export const LoginScreen = () => {
 
             <Button
               mode="contained"
-              onPress={handleLogin}
+              onPress={handleEmailLogin}
               loading={isLoading}
               disabled={isLoading}
               style={styles.loginButton}
@@ -174,7 +212,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xxl,
   },
   header: {
-    marginBottom: spacing.xxl,
+    marginBottom: spacing.xl,
   },
   title: {
     fontWeight: '700',
@@ -182,6 +220,24 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     color: '#6B7280',
+  },
+  googleButton: {
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    marginBottom: spacing.lg,
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: spacing.lg,
+    gap: spacing.md,
+  },
+  divider: {
+    flex: 1,
+  },
+  dividerText: {
+    color: '#9CA3AF',
   },
   form: {
     gap: spacing.md,
